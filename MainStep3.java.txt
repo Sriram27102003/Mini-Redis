@@ -1,0 +1,67 @@
+
+import java.io.BufferedReader;       // Reads text received from a client
+import java.io.InputStreamReader;    // Converts incoming bytes into characters
+import java.io.PrintWriter;          // Sends text responses to a client
+import java.net.ServerSocket;        // Listens for incoming connections
+import java.net.Socket;              // Represents one connected client
+
+public class Main {
+
+    public static void main(String[] args) {
+        int port = 6379; // The port our clients will connect to
+
+        // Opens port 6379 and waits for clients to connect
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
+            System.out.println("Multithreaded server listening on port " + port);
+
+            while (true) { // Keeps the server accepting new connections
+                Socket clientSocket = serverSocket.accept();
+                // Waits for a connection and gets a Socket for that client
+
+                System.out.println("Client connected: "
+                        + clientSocket.getRemoteSocketAddress());
+                // Prints the address of the connected client
+
+                new Thread(() -> handleClient(clientSocket)).start();
+                // Starts a separate thread to handle this client
+                // The main thread can now accept another client
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace(); // Displays server startup or connection errors
+        }
+    }
+
+    private static void handleClient(Socket clientSocket) {
+        // Handles communication with this particular client
+
+        try (
+            BufferedReader in = new BufferedReader( // Creates a reader for incoming text
+                new InputStreamReader(clientSocket.getInputStream()) // Converts incoming bytes to characters
+            );
+            PrintWriter out = new PrintWriter( // Creates a writer for outgoing text
+                clientSocket.getOutputStream(), true // Sends responses and automatically flushes them
+            )
+        ) {
+            String inputLine; // Stores each message received from the client
+
+            while ((inputLine = in.readLine()) != null) {
+                // Reads messages until the client disconnects
+
+                out.println("You said: " + inputLine);
+                // Sends the response back to this client
+            }
+
+        } catch (Exception e) {
+            System.err.println("Client error: " + e.getMessage());
+            // Reports errors for this client's connection
+
+        } finally {
+            try {
+                clientSocket.close(); // Closes this client's socket when finished
+            } catch (Exception ignored) {
+                // Ignores errors if the socket is already closed
+            }
+        }
+    }
+}

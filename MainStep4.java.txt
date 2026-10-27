@@ -1,0 +1,106 @@
+
+import java.io.BufferedReader;       // Reads text sent by a client
+import java.io.InputStreamReader;    // Converts incoming bytes into characters
+import java.io.PrintWriter;          // Sends text responses to a client
+import java.net.ServerSocket;        // Listens for new client connections
+import java.net.Socket;              // Represents one client's connection
+import java.util.concurrent.ConcurrentHashMap; // Provides a shared, thread-safe key-value store
+import java.util.concurrent.ConcurrentMap;     // Defines the shared map's interface
+
+public class Main {
+
+    // One shared store used by every client thread
+    private static final ConcurrentMap<String, String> data =
+            new ConcurrentHashMap<>();
+
+    public static void main(String[] args) {
+        int port = 6379; // The port our clients connect to
+
+        // Starts listening for client connections on port 6379
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
+            System.out.println("Mini Redis listening on port " + port);
+
+            while (true) { // Keeps accepting new clients
+                Socket clientSocket = serverSocket.accept();
+                // Waits for a client and creates its connection socket
+
+                System.out.println("Client connected: "
+                        + clientSocket.getRemoteSocketAddress());
+                // Displays which client connected
+
+                new Thread(() -> handleClient(clientSocket)).start();
+                // Gives this client its own thread so other clients can connect
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace(); // Displays server-level errors
+        }
+    }
+
+    private static void handleClient(Socket clientSocket) {
+        // Handles commands from one connected client
+
+        try (
+            BufferedReader in = new BufferedReader(
+                    new InputStreamReader(clientSocket.getInputStream()));
+            // Reads each command sent by this client
+
+            PrintWriter out = new PrintWriter(
+                    clientSocket.getOutputStream(), true)
+            // Sends responses back and automatically flushes each println
+        ) {
+            String inputLine; // Holds the current command from the client
+
+            while ((inputLine = in.readLine()) != null) {
+                // Continues until the client disconnects
+
+                String[] parts = inputLine.trim().split("\\s+", 3);
+                // Splits a command into at most 3 parts, allowing spaces in the value
+                // Example: SET greeting hello world -> ["SET", "greeting", "hello world"]
+
+                String command = parts[0].toUpperCase();
+                // Makes commands case-insensitive, so set and SET both work
+
+                if ("SET".equals(command) && parts.length == 3) {
+                    // SET requires a command, a key, and a value
+
+                    data.put(parts[1], parts[2]);
+                    // Stores the value under the given key in the shared map
+
+                    out.println("OK");
+                    // Confirms that the value was stored
+
+                } else if ("GET".equals(command) && parts.length == 2) {
+                    // GET requires a command and a key
+
+                    String value = data.get(parts[1]);
+                    // Looks up the value associated with the requested key
+
+                    if (value == null) {
+                        out.println("(nil)");
+                        // Indicates that the key doesn't exist
+                    } else {
+                        out.println(value);
+                        // Returns the stored value to this client
+                    }
+
+                } else {
+                    out.println("ERR unknown or invalid command");
+                    // Explains that the command or its arguments are invalid
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println("Client error: " + e.getMessage());
+            // Reports an error affecting this client's connection
+
+        } finally {
+            try {
+                clientSocket.close();
+                // Releases this client's socket when handling finishes
+            } catch (Exception ignored) {
+                // Ignores errors if the socket is already closed
+            }
+        }
+    }
+}
