@@ -1,4 +1,3 @@
-
 # Mini Redis --- Java TCP Key-Value Store
 
 A learning project that builds a small Redis-inspired, in-memory
@@ -11,6 +10,7 @@ key-value server using core Java networking and concurrency concepts.
 ## Table of Contents
 
 -   [Overview](#overview)
+-   [Real Redis vs. Mini Redis](#real-redis-vs-mini-redis)
 -   [Implemented Features](#implemented-features)
 -   [Architecture](#architecture)
 -   [Request Lifecycle](#request-lifecycle)
@@ -37,6 +37,58 @@ The project focuses on learning:
 -   Shared state and thread-safe data structures.
 -   Basic command parsing and request/response handling.
 -   Graceful client disconnection and error handling.
+
+## Real Redis vs. Mini Redis
+
+The goal of Mini Redis is to recreate a small part of Redis's core idea: a
+server that accepts commands over a network and stores key-value data in
+memory. It is a learning implementation, not a complete Redis clone or a
+drop-in replacement for the real Redis server.
+
+| Area | Real Redis | Mini Redis |
+|---|---|---|
+| Purpose | Production-ready in-memory data store used for caching and other data-serving workloads | Learning project for understanding how a networked key-value server works |
+| Server and networking | Redis server with its own client/server protocol | Java TCP server using `ServerSocket` and `Socket` |
+| Data storage | Supports multiple data structures, including strings, hashes, lists, sets, and sorted sets | Stores string keys and string values in a shared `ConcurrentHashMap` |
+| Commands | Supports a broad command set, including `SET`, `GET`, `DEL`, expiry commands, and many others | Implements `SET`, `GET`, and `QUIT`, plus basic command validation |
+| Wire protocol | Uses the Redis Serialization Protocol (RESP) | Uses a simple line-based text protocol; it does not implement RESP |
+| Concurrent clients | Designed to serve many clients with production-oriented networking and execution behavior | Starts a separate thread for each accepted client connection |
+| Persistence | Provides persistence options, including snapshots and append-only files | Data is held in memory and is lost when the server process stops |
+| Reliability and security | Offers a wider set of operational, security, and production features | No authentication, encryption, replication, or transaction support currently |
+| Best use | Real applications that need Redis's supported capabilities | Learning Java networking, command processing, shared state, and concurrency |
+
+### Example: how shared storage works
+
+A client connected to Mini Redis can send:
+
+```text
+SET name Sriram
+```
+
+The server stores `name` → `Sriram` in its shared in-memory map and replies
+`OK`. Another client can then send:
+
+```text
+GET name
+```
+
+and receive `Sriram`. This works because both clients connect to the same
+server process and access the same map.
+
+### What this project demonstrates
+
+-   **Networking:** clients and server exchange commands over TCP sockets.
+-   **Concurrency:** the server handles client connections on separate
+    threads.
+-   **Thread-safe shared state:** client handlers access the same
+    `ConcurrentHashMap`.
+-   **Command processing:** input is parsed, validated, executed, and
+    translated into a response.
+
+The project intentionally focuses on these fundamentals instead of
+reimplementing every feature of Redis. Features such as RESP support,
+persistence, key expiry, more commands, automated tests, and a bounded
+thread pool are possible future improvements.
 
 ## Implemented Features
 
